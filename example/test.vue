@@ -2,15 +2,8 @@
   <div>
     <uploader
       :options="options"
-      :autoStart="true"
-      :file-status-text="statusText"
-      class="uploader-example"
-      ref="uploader"
-      @file-complete="fileComplete"
-      @complete="complete"
-      @files-added="checkMd5()"
-      @file-success="fileSuccess"
-    >
+      :autoStart="false"
+      :file-status-text="statusText" class="uploader-example" ref="uploader" @file-complete="fileComplete" @complete="complete" @files-added="checkMd5()">
     </uploader>
     <span slot="footer" class="dialog-footer">
     <span @click="uploadFile">确 定</span>
@@ -21,8 +14,6 @@
 <script>
   /*eslint-disable*/
   import SparkMD5 from 'spark-md5'
-  import axios from 'axios'
-
   export default {
     data () {
       return {
@@ -34,7 +25,48 @@
           simultaneousUploads: 1,
           autoStart: false,
           chunkSize: 10 * 1024 * 1024,
-          // generateUniqueIdentifier: this.preprocess,
+          generateUniqueIdentifier: function (file) {
+            return file.md5Res
+            // console.log(file)
+            /*file.md5Res = ''
+            var fileReader = new FileReader(),
+              //文件每块分割2M，计算分割详情
+              chunkSize = 2097152,
+              chunks = Math.ceil(file.size / chunkSize),
+              currentChunk = 0,
+              //创建md5对象（基于SparkMD5）
+              spark = new SparkMD5()
+            //每块文件读取完毕之后的处理
+            fileReader.onload = function(e) {
+              //每块交由sparkMD5进行计算
+              spark.appendBinary(e.target.result)
+              currentChunk++
+              //如果文件处理完成计算MD5，如果还有分片继续处理
+              if (currentChunk < chunks) {
+                loadNext()
+              } else {
+                // callback(spark.end())
+                // console.log('finished loading');
+                // console.info('computed hash', spark.end());
+
+                // let fileMd5
+                // fileMd5 = spark.end()
+                // file.md5Res = spark.end()
+                // alert(fileMd5)
+                return spark.end()
+              }
+            }
+            //处理单片文件的上传
+            function loadNext() {
+              var start = currentChunk * chunkSize,
+                end = start + chunkSize >= file.size ? file.size : start + chunkSize
+              fileReader.readAsBinaryString(file.slice(start, end))
+            }
+            loadNext()
+            // var md5Res = (fileReader.onload)
+            // alert(md5Res)
+            // return file.md5Res*/
+          },
           preprocess: this.preprocess
         },
         attrs: {
@@ -46,9 +78,7 @@
           uploading: '上传中',
           paused: '暂停中',
           waiting: '等待中'
-        },
-        componentId: 'abc',
-        parentNodeId: 'def'
+        }
       }
     },
     methods: {
@@ -62,14 +92,17 @@
           chunk.preprocessFinished()
         }
       },
-      fileMd5HeadTailTime (zenFile, chunkSize) {
+      fileMd5HeadTailTime(zenFile, chunkSize){
         return new Promise((resolve, reject) => {
           let file = zenFile.file
           let SparkMD5 = require('spark-md5')
           // let spark = new SparkMD5.ArrayBuffer()
           let spark = new SparkMD5()
           let fileReader = new FileReader()
-          let blobSlice = File.prototype.slice || File.prototype.mozSlice || File.prototype.webkitSlice
+          let blobSlice =
+            File.prototype.slice ||
+            File.prototype.mozSlice ||
+            File.prototype.webkitSlice
           let chunks = Math.ceil(file.size / chunkSize)
           let currentChunk = 0
 
@@ -80,13 +113,8 @@
               load()
             } else {
               zenFile.md5 = spark.end()
-              zenFile.componentId = this.componentId
-              zenFile.parentNodeId = this.parentNodeId
-              zenFile.uniqueIdentifier = zenFile.md5
-              if (currentChunk == chunks) {
-                // this.mergeFile(zenFile.md5, chunks, file.size)
-              }
               resolve()
+
             }
             // spark.append(e.target.result)
             /*if (currentChunk === chunks - 1) {
@@ -117,24 +145,10 @@
             // fileReader.readAsArrayBuffer(blobSlice.call(file, start, end))
             fileReader.readAsBinaryString(file.slice(start, end))
           }
+
           load()
-        })
-      },
-      mergeFile (md5, chunkNum, totalSize) {
-        var qs = require('qs')
-        let data = {
-          'identifier': md5,
-          'totalChunks': chunkNum,
-          'totalSize': totalSize
-        }
-        let datapost = qs.stringify(data)
-        axios.post('http://192.168.31.13:8080/files/chunks/merge', datapost, {
-          headers: {
-            'content-type': 'application/x-www-form-urlencoded'
-          }
-        })
-      },
-      checkMd5 (file, fileList) {
+        })},
+      checkMd5(file, fileList) {
         // alert(2222)
         // console.log(file)
         // console.log(fileList)
@@ -146,25 +160,17 @@
       complete () {
         console.log('complete', arguments)
       },
-      // 上传文件夹时 fileComplete 第一个参数为根文件（文件夹），第二个参数为最后一个上传的文件
       fileComplete () {
         console.log('file complete', arguments)
-        alert(arguments[1].uniqueIdentifier)
-        // this.mergeFile(zenFile.md5, chunks, file.size)
-        // this.mergeFile(arguments[1].uniqueIdentifier, arguments[0].chunks.length, arguments[0].size)
+        alert(arguments[0].uniqueIdentifier)
       },
-      // 上传文件时 fileSuccess 第一个参数为根文件， 第二个参数为上传的文件
-      fileSuccess () {
-        console.log('fileSuccess', arguments)
-        this.mergeFile(arguments[1].uniqueIdentifier, arguments[0].chunks.length, arguments[0].size)
-      },
-      uploadFile () {
+      uploadFile() {
         let formData = new FormData()
         formData.append('parentnodeid', this.parentNodeId)
         this.fileAll = this.$refs.uploader.uploader.files
         for (var i = 0; i < this.fileAll.length; i++) {
-          // let fileMd5 = this.getFileMD5(this.fileAll[i].file)
-          // alert(fileMd5)
+          let fileMd5 = this.getFileMD5(this.fileAll[i].file)
+          alert(fileMd5)
           // this.fileAll[i].file.md5Res = fileMd5
           // alert(this.fileAll[i].file.md5Res)
           //判断数组里是文件夹还是文件
@@ -202,7 +208,7 @@
         });
       }*/
       // 获得文件md5
-      getFileMD5 (file, callback) {
+      getFileMD5(file, callback) {
         //声明必要的变量
         // const spark = new SparkMD5()
         var fileReader = new FileReader(),
@@ -213,7 +219,7 @@
           //创建md5对象（基于SparkMD5）
           spark = new SparkMD5()
         //每块文件读取完毕之后的处理
-        fileReader.onload = function (e) {
+        fileReader.onload = function(e) {
           //每块交由sparkMD5进行计算
           spark.appendBinary(e.target.result)
           currentChunk++
@@ -227,20 +233,19 @@
 
             let fileMd5
             fileMd5 = spark.end()
-            // alert(fileMd5)
+            alert(fileMd5)
             return fileMd5
           }
         }
-
         //处理单片文件的上传
-        function loadNext () {
+        function loadNext() {
           var start = currentChunk * chunkSize,
             end = start + chunkSize >= file.size ? file.size : start + chunkSize
           fileReader.readAsBinaryString(file.slice(start, end))
         }
-
         loadNext()
       }
+
     },
     mounted () {
       this.$nextTick(() => {
@@ -258,11 +263,9 @@
     font-size: 12px;
     box-shadow: 0 0 10px rgba(0, 0, 0, .4);
   }
-
   .uploader-example .uploader-btn {
     margin-right: 4px;
   }
-
   .uploader-example .uploader-list {
     max-height: 440px;
     overflow: auto;
