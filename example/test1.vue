@@ -2,13 +2,13 @@
   <div>
     <uploader
       :options="options"
-      :autoStart="false"
+      :autoStart="true"
       :file-status-text="statusText"
       class="uploader-example"
       ref="uploader"
       @file-complete="fileComplete"
       @complete="complete"
-      @files-added="checkMd5"
+      @files-added="checkMd5()"
       @file-success="fileSuccess"
     >
     </uploader>
@@ -27,15 +27,15 @@
     data () {
       return {
         options: {
-          target: 'http://192.168.31.13:8080/files/chunks',
+          // target: 'http://192.168.31.13:8080/files/chunks',
           // testChunks: true,
-          // target: '/boot/uploader/chunk',
-          testChunks: false,
-          simultaneousUploads: 10,
+          target: '/boot/uploader/chunk',
+          testChunks: true,
+          simultaneousUploads: 3,
           autoStart: false,
-          chunkSize: 80 * 1024 * 1024,
+          chunkSize: 50 * 1024 * 1024,
           // generateUniqueIdentifier: this.preprocess,
-          // preprocess: this.preprocess
+          preprocess: this.preprocess
         },
         attrs: {
           accept: 'image/*'
@@ -48,8 +48,7 @@
           waiting: '等待中'
         },
         componentId: 'abc',
-        parentNodeId: 'def',
-        fileTreeList: []
+        parentNodeId: 'def'
       }
     },
     methods: {
@@ -57,22 +56,12 @@
         console.log('all',event)
       },
       preprocess (chunk) {
-        // console.log(chunk.preprocessState)
+        console.log(chunk.preprocessState)
         // 上传或test之前执行,生成md5(如果file存在md5 就不生成了)
-        if (chunk.file.md5 === '' || chunk.file.md5 == null) {
-          this.fileMd5HeadTailTime(chunk.file, this.$refs.uploader.uploader.opts.chunkSize).then(() => {
-            chunk.preprocessFinished()
-          })
-        } else {
-          chunk.preprocessFinished()
-        }
-        /*this.fileMd5HeadTailTime(chunk.file, this.$refs.uploader.uploader.opts.chunkSize).then(() => {
-          chunk.preprocessFinished()
-        })*/
-      },
-      fileMd5HeadTailTime (zenFile, chunkSize) {
-        return new Promise((resolve, reject) => {
-          let file = zenFile.file
+        console.log(chunk)
+        if(!chunk.md5res) {
+          let chunkSize = this.$refs.uploader.uploader.opts.chunkSize
+          let file = chunk.file.file
           let SparkMD5 = require('spark-md5')
           // let spark = new SparkMD5.ArrayBuffer()
           let spark = new SparkMD5()
@@ -80,7 +69,6 @@
           let blobSlice = File.prototype.slice || File.prototype.mozSlice || File.prototype.webkitSlice
           let chunks = Math.ceil(file.size / chunkSize)
           let currentChunk = 0
-
           fileReader.onload = e => {
             spark.appendBinary(e.target.result)
             currentChunk++
@@ -92,25 +80,10 @@
               console.log(a)
               load()
             } else {
-              zenFile.md5 = spark.end()
-              zenFile.componentId = this.componentId
-              zenFile.parentNodeId = this.parentNodeId
-              zenFile.uniqueIdentifier = zenFile.md5
-              /*axios.get('http://192.168.31.13:8080/files/hasmd5',{
-                headers: {
-                  "content-type": "application/x-www-form-urlencoded"
-                },
-                params: {
-                  MD5: zenFile.md5
-                }
-              }).then((res) => {
-                if(res.data.data == true) {
-                  alert('该文件已存在')
-                } else if(res.data.data == false){
-                  resolve()
-                }
-              })*/
-              resolve()
+              chunk.md5res = spark.end()
+              chunk.componentId = this.componentId
+              chunk.parentNodeId = this.parentNodeId
+              chunk.uniqueIdentifier = chunk.md5res
             }
             fileReader.onerror = e => reject(e)
           }
@@ -121,128 +94,57 @@
             fileReader.readAsBinaryString(file.slice(start, end))
           }
           load()
-        })
-      },
-      checkMd5 (fileAdded, fileList) {
-        // console.log(this.$refs.uploader.uploader.files)
-        console.log(fileAdded)
-        console.log(fileAdded.length)
-        // let SparkMD5 = require('spark-md5')
-        // let SparkMD5 = require('spark-md5')
-        let chunkSize = this.$refs.uploader.uploader.opts.chunkSize
-        let completeFlag = 0
-        let that = this
-        for(var i = 0; i < fileAdded.length; i++) {
-          let fileA = fileAdded[i]
-          this.resolveMd5(fileA, chunkSize).then(function (result) {
-            console.log(result)
-            fileA.md5 = result
-            fileA.uniqueIdentifier = result
-            completeFlag++
-            if(completeFlag === fileAdded.length) {
-              console.log(fileAdded)
-              console.log('-------')
-              let allFile = that.$refs.uploader.uploader.files
-              console.log(allFile)
-            }
-          })
         }
-        /*for(var i = 0; i < fileAdded.length; i++) {
-          return new Promise((resolve, reject) => {
-            let zenFile = fileAdded[i]
-            let file = fileAdded[i].file
-            // let spark = new SparkMD5.ArrayBuffer()
-            let spark = new SparkMD5()
-            let fileReader = new FileReader()
-            let blobSlice = File.prototype.slice || File.prototype.mozSlice || File.prototype.webkitSlice
-            let chunks = Math.ceil(file.size / chunkSize)
-            let currentChunk = 0
-
-            fileReader.onload = e => {
-              spark.appendBinary(e.target.result)
-              currentChunk++
-              /!*if(zenFile.preprocessState == 2) {
-                return
-              }*!/
-              if (currentChunk < chunks) {
-                let a = 'deal with' + currentChunk + '剩余' + (chunks - currentChunk)
-                console.log(a)
-                load()
-              } else {
-                // console.log(zenFile)
-                // zenFile.md5 = spark.end()
-                // fileAdded[i].componentId = this.componentId
-                // fileAdded[i].parentNodeId = this.parentNodeId
-                // fileAdded[i].uniqueIdentifier = fileAdded[i].md5
-                // zenFile.uniqueIdentifier = zenFile.md5
-                resolve(spark.end())
-                /!*if(zenFile.md5 === 'ad9f98bbebb0ecc86cb374d5bf3c4386') {
-                  alert('已存在')
-                  this.$refs.uploader.uploader.removeFile(zenFile)
-                }*!/
-                /!*axios.get('http://192.168.31.13:8080/files/hasmd5',{
-                  headers: {
-                    "content-type": "application/x-www-form-urlencoded"
-                  },
-                  params: {
-                    MD5: file[i].md5
-                  }
-                }).then((res) => {
-                  if(res.data.data == true) {
-                    alert('该文件已存在')
-                  } else if(res.data.data == false){
-                    resolve()
-                  }
-                }).catch(
-                  resolve()
-                )*!/
-              }
-              fileReader.onerror = e => reject(e)
-            }
-
-            let load = () => {
-              var start = currentChunk * chunkSize
-              var end = start + chunkSize >= file.size ? file.size : start + chunkSize
-              fileReader.readAsBinaryString(file.slice(start, end))
-            }
-            load()
+        if (chunk.file.md5 === '' || chunk.file.md5 == null) {
+          this.fileMd5HeadTailTime(chunk.file, this.$refs.uploader.uploader.opts.chunkSize, chunk).then(() => {
+            chunk.preprocessFinished()
           })
-        }*/
-
+        } else {
+          chunk.preprocessFinished()
+        }
       },
-      resolveMd5(zenfile,chunkSize) {
+      fileMd5HeadTailTime (zenFile, chunkSize, chunk) {
         return new Promise((resolve, reject) => {
-          let file = zenfile.file
+          let file = zenFile.file
+          let SparkMD5 = require('spark-md5')
           // let spark = new SparkMD5.ArrayBuffer()
-          if(zenfile.md5){
-            resolve(zenfile.md5)
-          }else{
-            let spark = new SparkMD5()
-            let fileReader = new FileReader()
-            let blobSlice = File.prototype.slice || File.prototype.mozSlice || File.prototype.webkitSlice
-            let chunks = Math.ceil(file.size / chunkSize)
-            let currentChunk = 0
+          let spark = new SparkMD5()
+          let fileReader = new FileReader()
+          let blobSlice = File.prototype.slice || File.prototype.mozSlice || File.prototype.webkitSlice
+          let chunks = Math.ceil(file.size / chunkSize)
+          let currentChunk = 0
+          chunk.md5 = chunk.md5res
+          zenFile.md5 = chunk.md5res
+          alert('结束了')
+          resolve()
 
-            fileReader.onload = e => {
-              spark.appendBinary(e.target.result)
-              currentChunk++
-              if (currentChunk < chunks) {
-                let a = 'deal with' + currentChunk + '剩余' + (chunks - currentChunk)
-                console.log(a)
-                load()
-              } else {
-                resolve(spark.end())
-              }
-              fileReader.onerror = e => reject(e)
+          /*fileReader.onload = e => {
+            spark.appendBinary(e.target.result)
+            currentChunk++
+            console.log(chunk.preprocessState)
+            /!*if(zenFile.preprocessState == 2) {
+              return
+            }*!/
+            if (currentChunk < chunks) {
+              let a = 'deal with' + currentChunk + '剩余' + (chunks - currentChunk)
+              console.log(a)
+              load()
+            } else {
+              zenFile.md5 = spark.end()
+              zenFile.componentId = this.componentId
+              zenFile.parentNodeId = this.parentNodeId
+              zenFile.uniqueIdentifier = zenFile.md5
+              resolve()
             }
-
-            let load = () => {
-              var start = currentChunk * chunkSize
-              var end = start + chunkSize >= file.size ? file.size : start + chunkSize
-              fileReader.readAsBinaryString(file.slice(start, end))
-            }
-            load()
+            fileReader.onerror = e => reject(e)
           }
+
+          let load = () => {
+            var start = currentChunk * chunkSize
+            var end = start + chunkSize >= file.size ? file.size : start + chunkSize
+            fileReader.readAsBinaryString(file.slice(start, end))
+          }
+          load()*/
         })
       },
       mergeFile (md5, chunkNum, totalSize, name, path) {
@@ -261,8 +163,8 @@
           }
         })
       },
-      fileTreeInfo () {
-
+      checkMd5 (file, fileList) {
+        console.log(this.$refs.uploader.uploader.files)
       },
       complete () {
         console.log('complete', arguments)
@@ -279,34 +181,6 @@
         console.log('fileSuccess', arguments)
         // this.fileMd5HeadTailTime(arguments[1].file, this.$refs.uploader.uploader.opts.chunkSize)
         // this.mergeFile(arguments[1].uniqueIdentifier, arguments[1].chunks.length, arguments[1].size, arguments[1].name, arguments[1].relativePath)
-        let data = {
-          'identifier': arguments[1].uniqueIdentifier,
-          'totalChunks': arguments[1].chunks.length,
-          'totalSize': arguments[1].size,
-          'filename': arguments[1].name,
-          'relativePath': arguments[1].relativePath
-        }
-        let datapost = qs.stringify(data)
-        axios.post('http://192.168.31.13:8080/files/chunks/merge', datapost, {
-          headers: {
-            'content-type': 'application/x-www-form-urlencoded'
-          }
-        }).then((res)=> {
-          let infoList = [{
-            fileId: res.data.data.id,
-            MD5: arguments[1].md5,
-            name: arguments[1].name,
-            relativePath: '/' + arguments[1].relativePath
-          }]
-          let datapost = JSON.stringify(infoList)
-          axios.post('http://192.168.31.13:8080/components/aaa-bbb-ccc-ddd/uploadfiles',datapost, {
-            headers: {
-              'content-type': 'application/json;charset=utf-8', //设置请求头信息
-              'parentNodeId': 'qqqqwwww'
-            }
-          })
-        })
-
       },
       uploadFile () {
         let formData = new FormData()
