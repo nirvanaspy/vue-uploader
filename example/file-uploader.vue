@@ -1,7 +1,6 @@
 <template>
   <div>
-    <compfileManage :selectCompId="selectedId" :selectCompName="selectdName"></compfileManage>
-    <!--<uploader
+    <uploader
       :options="options"
       :autoStart="autoStart"
       :file-status-text="statusText"
@@ -11,16 +10,17 @@
       @complete="complete"
       @files-added="checkMd5"
       @file-success="fileSuccess"
+      v-loading="md5Loading"
     >
       <uploader-unsupport></uploader-unsupport>
       <uploader-drop>
         <p>拖拽文件到此处或</p>
         <uploader-btn>选择文件</uploader-btn>
-        <uploader-btn :directory="true">选择文件夹</uploader-btn>
+        <!--<uploader-btn :directory="true">选择文件夹</uploader-btn>-->
       </uploader-drop>
       <uploader-list ref="uploaderList"></uploader-list>
     </uploader>
-    <span slot="footer" class="dialog-footer" style="display: block;text-align: center;margin-top: 20px;">
+    <!--<span slot="footer" class="dialog-footer" style="display: block;text-align: center;margin-top: 20px;">
       <span @click="uploadFile">确 定</span>
     </span>-->
   </div>
@@ -30,11 +30,17 @@
   /*eslint-disable*/
   import SparkMD5 from 'spark-md5'
   import axios from 'axios'
-  import compfileManage from './filecomp'
 
   export default {
-    components: {
-      compfileManage
+    props: {
+      parentNodeId: {
+        type: String,
+        default: ''
+      },
+      componentId: {
+        type: String,
+        default: '05473be4-6b45-443f-9edc-314c3c12b8'
+      },
     },
     data () {
       return {
@@ -60,11 +66,10 @@
           waiting: '等待中'
         },
         autoStart: false,
-        componentId: 'abc',
-        parentNodeId: 'def',
+        /*componentId: 'abc',
+        parentNodeId: 'def',*/
         fileTreeList: [],
-        selectedId: '05473be4-6b45-443f-9edc-314c3c12b818',
-        selectdName: '测试'
+        md5Loading: false
       }
     },
     methods: {
@@ -140,6 +145,7 @@
       },
       checkMd5 (fileAdded, fileList) {
         // console.log(this.$refs.uploader.uploader.files)
+        this.md5Loading = true
         console.log(fileAdded)
         console.log(fileAdded.length)
         // let SparkMD5 = require('spark-md5')
@@ -161,13 +167,28 @@
                 MD5: fileA.md5
               }
             }).then((res) => {
-              if (res.data.data == true) {
+              if (res.data.data.id) {
+                that.md5Loading = false
+                let infoList = [{
+                  fileId: res.data.data.id,
+                  MD5: fileA.md5,
+                  name: fileA.name,
+                  relativePath: '/' + fileA.relativePath
+                }]
+                let datapost = JSON.stringify(infoList)
+                axios.post('http://192.168.31.13:8080/components/05473be4-6b45-443f-9edc-314c3c12b818/uploadfiles',datapost, {
+                  headers: {
+                    'content-type': 'application/json;charset=utf-8', //设置请求头信息
+                    'parentNodeId': that.parentNodeId
+                  }
+                })
                 that.$refs.uploader.uploader.removeFile(fileA)
               } else if (res.data.data == false) {
                 completeFlag++
                 if(completeFlag === fileAdded.length) {
                   console.log(fileAdded)
                   console.log('-------')
+                  that.md5Loading = false
                   let allFile = that.$refs.uploader.uploader.files
                   console.log(allFile)
                   that.$refs.uploader.uploader.upload()
@@ -331,7 +352,7 @@
           axios.post('http://192.168.31.13:8080/components/05473be4-6b45-443f-9edc-314c3c12b818/uploadfiles',datapost, {
             headers: {
               'content-type': 'application/json;charset=utf-8', //设置请求头信息
-              'parentNodeId': ''
+              'parentNodeId': this.parentNodeId
             }
           })
         })
@@ -422,9 +443,9 @@
       }
     },
     mounted () {
-      /*this.$nextTick(() => {
+      this.$nextTick(() => {
         window.uploader = this.$refs.uploader.uploader
-      })*/
+      })
     }
   }
 </script>

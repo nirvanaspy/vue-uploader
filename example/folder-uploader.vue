@@ -1,9 +1,8 @@
 <template>
   <div>
-    <compfileManage :selectCompId="selectedId" :selectCompName="selectdName"></compfileManage>
-    <!--<uploader
+    <uploader
       :options="options"
-      :autoStart="autoStart"
+      :autoStart="false"
       :file-status-text="statusText"
       class="manage-uploader"
       ref="uploader"
@@ -15,12 +14,12 @@
       <uploader-unsupport></uploader-unsupport>
       <uploader-drop>
         <p>拖拽文件到此处或</p>
-        <uploader-btn>选择文件</uploader-btn>
+        <!--<uploader-btn>选择文件</uploader-btn>-->
         <uploader-btn :directory="true">选择文件夹</uploader-btn>
       </uploader-drop>
       <uploader-list ref="uploaderList"></uploader-list>
     </uploader>
-    <span slot="footer" class="dialog-footer" style="display: block;text-align: center;margin-top: 20px;">
+    <!--<span slot="footer" class="dialog-footer" style="display: block;text-align: center;margin-top: 20px;">
       <span @click="uploadFile">确 定</span>
     </span>-->
   </div>
@@ -30,11 +29,18 @@
   /*eslint-disable*/
   import SparkMD5 from 'spark-md5'
   import axios from 'axios'
-  import compfileManage from './filecomp'
+  import qs from 'qs'
 
   export default {
-    components: {
-      compfileManage
+    props: {
+      parentNodeId: {
+        type: String,
+        default: ''
+      },
+      componentId: {
+        type: String,
+        default: '05473be4-6b45-443f-9edc-314c3c12b8'
+      },
     },
     data () {
       return {
@@ -59,12 +65,9 @@
           paused: '暂停中',
           waiting: '等待中'
         },
-        autoStart: false,
-        componentId: 'abc',
-        parentNodeId: 'def',
-        fileTreeList: [],
-        selectedId: '05473be4-6b45-443f-9edc-314c3c12b818',
-        selectdName: '测试'
+        /*componentId: 'abc',
+        parentNodeId: 'def',*/
+        fileTreeList: []
       }
     },
     methods: {
@@ -153,27 +156,13 @@
             console.log(result)
             fileA.md5 = result
             fileA.uniqueIdentifier = result
-            axios.get('http://192.168.31.13:8080/files/hasmd5',{
-              headers: {
-                "content-type": "application/x-www-form-urlencoded"
-              },
-              params: {
-                MD5: fileA.md5
-              }
-            }).then((res) => {
-              if (res.data.data == true) {
-                that.$refs.uploader.uploader.removeFile(fileA)
-              } else if (res.data.data == false) {
-                completeFlag++
-                if(completeFlag === fileAdded.length) {
-                  console.log(fileAdded)
-                  console.log('-------')
-                  let allFile = that.$refs.uploader.uploader.files
-                  console.log(allFile)
-                  that.$refs.uploader.uploader.upload()
-                }
-              }
-            })
+            completeFlag++
+            if(completeFlag === fileAdded.length) {
+              console.log(fileAdded)
+              console.log('-------')
+              let allFile = that.$refs.uploader.uploader.files
+              console.log(allFile)
+            }
           })
         }
         /*for(var i = 0; i < fileAdded.length; i++) {
@@ -290,9 +279,6 @@
           }
         })
       },
-      fileTreeInfo () {
-
-      },
       complete () {
         console.log('complete', arguments)
       },
@@ -302,12 +288,36 @@
         // alert(arguments[1].uniqueIdentifier)
         // this.mergeFile(zenFile.md5, chunks, file.size)
         // this.mergeFile(arguments[0].uniqueIdentifier, arguments[0].chunks.length, arguments[0].size)
+        // var qs = require('qs')
+        /*let data = {
+          fileInfoEntities: this.fileTreeList,
+          parentNodeId: 'qqq-www-eee'
+        }*/
+        // let datapost = qs.stringify(this.fileTreeList)
+        let datapost = JSON.stringify(this.fileTreeList)
+        axios.post('http://192.168.31.13:8080/components/05473be4-6b45-443f-9edc-314c3c12b818/uploadfiles',datapost, {
+          headers: {
+            'content-type': 'application/json;charset=utf-8', //设置请求头信息
+            'parentNodeId': this.parentNodeId
+          }
+        })
       },
       // 上传文件时 fileSuccess 第一个参数为根文件， 第二个参数为上传的文件
       fileSuccess () {
         console.log('fileSuccess', arguments)
         // this.fileMd5HeadTailTime(arguments[1].file, this.$refs.uploader.uploader.opts.chunkSize)
-        // this.mergeFile(arguments[1].uniqueIdentifier, arguments[1].chunks.length, arguments[1].size, arguments[1].name, arguments[1].relativePath)
+        /*this.mergeFile(arguments[1].uniqueIdentifier,
+          arguments[1].chunks.length,
+          arguments[1].size,
+          arguments[1].name, arguments[1].relativePath).then((res)=> {
+          this.fileTreeList.push({
+            fileId: res.data.data.id,
+            MD5: arguments[1].md5,
+            name: arguments[1].name,
+            relativePath: arguments[1].relativePath
+          })
+        })*/
+        // var qs = require('qs')
         let data = {
           'identifier': arguments[1].uniqueIdentifier,
           'totalChunks': arguments[1].chunks.length,
@@ -321,21 +331,13 @@
             'content-type': 'application/x-www-form-urlencoded'
           }
         }).then((res)=> {
-          let infoList = [{
+          this.fileTreeList.push({
             fileId: res.data.data.id,
             MD5: arguments[1].md5,
             name: arguments[1].name,
-            relativePath: '/' + arguments[1].relativePath
-          }]
-          let datapost = JSON.stringify(infoList)
-          axios.post('http://192.168.31.13:8080/components/05473be4-6b45-443f-9edc-314c3c12b818/uploadfiles',datapost, {
-            headers: {
-              'content-type': 'application/json;charset=utf-8', //设置请求头信息
-              'parentNodeId': ''
-            }
+            relativePath: arguments[1].relativePath
           })
         })
-
       },
       uploadFile () {
         let formData = new FormData()
@@ -422,9 +424,9 @@
       }
     },
     mounted () {
-      /*this.$nextTick(() => {
+      this.$nextTick(() => {
         window.uploader = this.$refs.uploader.uploader
-      })*/
+      })
     }
   }
 </script>
